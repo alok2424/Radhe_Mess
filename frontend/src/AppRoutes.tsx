@@ -5,7 +5,6 @@ import Attendance from "@/pages/Attendance";
 import StudentLogin from "@/pages/login/StudentLogin";
 import AdminLogin from "@/pages/login/AdminLogin";
 import UpdateTodayFood from "@/pages/admin/UpdateTodayFood";
-
 const AppRoutes = () => {
   return (
     <Routes>
