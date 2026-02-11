@@ -22,7 +22,7 @@
 import React from "react";
 import Header from "@/components/Header";
 import TopInfoBar from "@/components/TopInfoBar";
-
+import Footer from "@/components/Footer";
 type Props = {
   children: React.ReactNode;
 };
@@ -33,6 +33,7 @@ export default function Layout({ children }: Props) {
       <Header />
       <TopInfoBar />
       <main className="mx-auto w-full max-w-6xl px-4 py-6">{children}</main>
+      <Footer />
     </div>
   );
 }
