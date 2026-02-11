@@ -23,6 +23,9 @@ const attendanceSchema = new Schema(
     dateKey: { type: String, required: true }, // YYYY-MM-DD (IST)
     mealType: { type: String, required: true, enum: ["LUNCH", "DINNER"] },
     markedAt: { type: Date, required: true, default: Date.now },
+
+    // ✅ NEW: store student's selected foods (1 to 3 items)
+    selectedFoods: { type: [String], default: [], maxlength: 3 },
   },
   { timestamps: true }
 );

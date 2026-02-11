@@ -56,6 +56,7 @@
 import { Router, type Request, type Response } from "express";
 import Attendance from "../models/Attendance";
 import Student from "../models/Student";
+import Food from "../models/Food";
 import { requireAdmin } from "../middlewares/adminAuth";
 import { requireStudent } from "../middlewares/studentAuth";
 
@@ -140,7 +141,11 @@ router.get("/today-count", async (_req: Request, res: Response) => {
   res.json({ dateKey, presentCount: count, mealType });
 });
 
-// ✅ POST /api/attendance/mark (STUDENT ONLY + token reduce)
+/**
+ * ✅ POST /api/attendance/mark
+ * STUDENT ONLY + token reduce + food selection (1–3) + store in DB
+ * Body: { selectedFoods: string[] }
+ */
 router.post("/mark", requireStudent, async (req: Request, res: Response) => {
   const studentEmail = String((req as any).student?.email || "").toLowerCase();
   const tokenRollNo = String((req as any).student?.rollNo || "").trim();
@@ -149,10 +154,54 @@ router.post("/mark", requireStudent, async (req: Request, res: Response) => {
     return res.status(401).json({ message: "Unauthorized" });
   }
 
+  // ✅ 1) Validate selectedFoods (1–3)
+  const raw = req.body?.selectedFoods;
+  const picked = Array.isArray(raw)
+    ? raw.map((x) => String(x || "").trim()).filter(Boolean)
+    : [];
+
+  // remove duplicates case-insensitively
+  const seen = new Set<string>();
+  const selectedFoods: string[] = [];
+  for (const item of picked) {
+    const key = item.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      selectedFoods.push(item);
+    }
+  }
+
+  if (selectedFoods.length < 1) {
+    return res.status(400).json({ message: "Please select at least 1 food item." });
+  }
+
+  if (selectedFoods.length > 3) {
+    return res.status(400).json({ message: "You can select maximum 3 food items." });
+  }
+
+  // ✅ 2) Validate against today's menu
+  const dateKey = getISTDateKey();
+  const menuDoc = await Food.findOne({ dateKey }).lean();
+
+  const menuNames =
+    menuDoc?.items?.map((it: any) => String(it?.name || "").trim()).filter(Boolean) || [];
+
+  if (menuNames.length === 0) {
+    return res.status(400).json({ message: "Today's menu is not available. Contact admin." });
+  }
+
+  const menuSet = new Set(menuNames.map((n) => n.toLowerCase()));
+  for (const f of selectedFoods) {
+    if (!menuSet.has(f.toLowerCase())) {
+      return res
+        .status(400)
+        .json({ message: `Invalid selection: "${f}". Choose from today's menu.` });
+    }
+  }
+
+  // ✅ existing rule: meal timing allowed
   const allowed = getAllowedMealToMark();
   if (!allowed.allowed) return res.status(403).json({ message: allowed.message });
-
-  const dateKey = getISTDateKey();
 
   // ✅ decrement only if tokens > 0
   const student = await Student.findOneAndUpdate(
@@ -166,12 +215,13 @@ router.post("/mark", requireStudent, async (req: Request, res: Response) => {
   }
 
   try {
-    // ✅ create attendance
+    // ✅ create attendance with selectedFoods stored
     const doc = await Attendance.create({
       studentRollNo: tokenRollNo, // ✅ from token
       dateKey,
       mealType: allowed.mealType,
       markedAt: new Date(),
+      selectedFoods,
     });
 
     return res.status(201).json({
@@ -183,6 +233,7 @@ router.post("/mark", requireStudent, async (req: Request, res: Response) => {
         dateKey: doc.dateKey,
         mealType: doc.mealType,
         markedAt: doc.markedAt,
+        selectedFoods: doc.selectedFoods,
       },
     });
   } catch (err: any) {
@@ -269,7 +320,55 @@ router.get("/analytics/daily", requireAdmin, async (req: Request, res: Response)
   return res.json({ from: fromKey, to: toKey, days: resultDays });
 });
 
+/**
+ * ✅ ADMIN: GET /api/attendance/analytics/top-food?month=YYYY-MM
+ * Returns TOP 3 most selected food items in that month.
+ */
+router.get("/analytics/top-food", requireAdmin, async (req: Request, res: Response) => {
+  const month = String(req.query?.month || "").trim(); // YYYY-MM
+
+  const nowKey = getISTDateKey(new Date()); // YYYY-MM-DD
+  const currentMonth = nowKey.slice(0, 7); // YYYY-MM
+  const monthKey = month || currentMonth;
+
+  if (!/^\d{4}-\d{2}$/.test(monthKey)) {
+    return res.status(400).json({ message: "Invalid month. Use YYYY-MM (e.g. 2026-02)" });
+  }
+
+  const fromKey = `${monthKey}-01`;
+
+  const [yy, mm] = monthKey.split("-").map(Number);
+  const lastDay = new Date(Date.UTC(yy, mm, 0)).getUTCDate();
+  const toKey = `${monthKey}-${String(lastDay).padStart(2, "0")}`;
+
+  const agg = await Attendance.aggregate([
+    { $match: { dateKey: { $gte: fromKey, $lte: toKey } } },
+    { $unwind: "$selectedFoods" },
+    {
+      $group: {
+        _id: { $toLower: "$selectedFoods" },
+        count: { $sum: 1 },
+      },
+    },
+    { $sort: { count: -1 } },
+    { $limit: 3 },
+  ]);
+
+  const top3 = agg.map((x) => ({
+    foodName: String(x._id),
+    count: Number(x.count || 0),
+  }));
+
+  return res.json({
+    month: monthKey,
+    from: fromKey,
+    to: toKey,
+    top3,
+  });
+});
+
 export default router;
+
 
 
 
