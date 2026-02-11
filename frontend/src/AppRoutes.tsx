@@ -15,6 +15,7 @@ import AdminOnly from "@/auth/AdminOnly";
 import AdminHome from "@/pages/admin/AdminHome";
 import UpdateTodayFood from "@/pages/admin/UpdateTodayFood";
 import DashboardAnalytics from "@/pages/admin/DashboardAnalytics";
+import StudentList from "@/pages/admin/StudentList";
 
 const AppRoutes = () => {
   return (
@@ -113,6 +114,17 @@ const AppRoutes = () => {
           </AdminOnly>
         }
       />
+     
+     <Route
+  path="/admin/student-list"
+  element={
+    <AdminOnly>
+      <Layout>
+        <StudentList />
+      </Layout>
+    </AdminOnly>
+  }
+/>
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

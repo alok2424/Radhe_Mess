@@ -44,6 +44,14 @@ export default function AdminHome() {
         >
           Dashboard
         </Link>
+
+        {/* ✅ NEW: Student List */}
+        <Link
+          to="/admin/student-list"
+          className="inline-flex items-center justify-center rounded-md bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700"
+        >
+          Student List
+        </Link>
       </div>
     </section>
   );
