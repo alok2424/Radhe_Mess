@@ -52,8 +52,11 @@
 // });
 
 // export default router;
+//import { Router, type Request, type Response } from "express";
 import { Router, type Request, type Response } from "express";
 import Attendance from "../models/Attendance";
+import { requireAdmin } from "../middlewares/adminAuth";
+import { requireStudent } from "../middlewares/studentAuth";
 
 const router = Router();
 
@@ -68,11 +71,10 @@ function getISTDateKey(date = new Date()) {
 
 function minutesSinceMidnightIST() {
   const ist = getISTNow();
-  return ist.getUTCHours() * 60 + ist.getUTCMinutes(); // because ist is already shifted
+  return ist.getUTCHours() * 60 + ist.getUTCMinutes();
 }
 
 function formatTimeLabel(h: number, m: number) {
-  // returns like "11:30am"
   const d = new Date();
   d.setHours(h, m, 0, 0);
   return d
@@ -84,69 +86,66 @@ function formatTimeLabel(h: number, m: number) {
 // Attendance marking windows (IST)
 const LUNCH_MARK_START = 11 * 60; // 11:00
 const LUNCH_MARK_END = 11 * 60 + 30; // 11:30
-
 const DINNER_MARK_START = 17 * 60 + 30; // 5:30pm
 const DINNER_MARK_END = 18 * 60; // 6:00pm
 
-function getAllowedMealToMark(): { allowed: true; mealType: "LUNCH" | "DINNER" } | { allowed: false; message: string } {
+function getAllowedMealToMark():
+  | { allowed: true; mealType: "LUNCH" | "DINNER" }
+  | { allowed: false; message: string } {
   const mins = minutesSinceMidnightIST();
 
-  if (mins >= LUNCH_MARK_START && mins < LUNCH_MARK_END) {
-    return { allowed: true, mealType: "LUNCH" };
-  }
+  if (mins >= LUNCH_MARK_START && mins < LUNCH_MARK_END) return { allowed: true, mealType: "LUNCH" };
+  if (mins >= DINNER_MARK_START && mins < DINNER_MARK_END) return { allowed: true, mealType: "DINNER" };
 
-  if (mins >= DINNER_MARK_START && mins < DINNER_MARK_END) {
-    return { allowed: true, mealType: "DINNER" };
-  }
-
-  // outside windows → helpful message
   if (mins < LUNCH_MARK_START) {
-    return { allowed: false, message: `Attendance for LUNCH can be marked between ${formatTimeLabel(11, 0)}-${formatTimeLabel(11, 30)}.` };
+    return {
+      allowed: false,
+      message: `Attendance for LUNCH can be marked between ${formatTimeLabel(11, 0)}-${formatTimeLabel(11, 30)}.`,
+    };
   }
+
   if (mins >= LUNCH_MARK_END && mins < DINNER_MARK_START) {
-    return { allowed: false, message: `Attendance for DINNER can be marked between ${formatTimeLabel(17, 30)}-${formatTimeLabel(18, 0)}.` };
+    return {
+      allowed: false,
+      message: `Attendance for DINNER can be marked between ${formatTimeLabel(17, 30)}-${formatTimeLabel(18, 0)}.`,
+    };
   }
+
   if (mins >= DINNER_MARK_END) {
-    return { allowed: false, message: `Attendance marking is closed now. Next LUNCH window is ${formatTimeLabel(11, 0)}-${formatTimeLabel(11, 30)}.` };
+    return {
+      allowed: false,
+      message: `Attendance marking is closed now. Next LUNCH window is ${formatTimeLabel(11, 0)}-${formatTimeLabel(11, 30)}.`,
+    };
   }
 
   return { allowed: false, message: "Attendance marking is not allowed right now." };
 }
 
 // GET /api/attendance/today-count
-// Returns count for current meal service window, else 0
 router.get("/today-count", async (_req: Request, res: Response) => {
   const dateKey = getISTDateKey();
   const mins = minutesSinceMidnightIST();
 
-  // Food service windows (for “students present currently”)
   const LUNCH_SERVICE_START = 11 * 60 + 30; // 11:30
   const LUNCH_SERVICE_END = 15 * 60; // 3:00pm
   const DINNER_SERVICE_START = 18 * 60; // 6:00pm
   const DINNER_SERVICE_END = 22 * 60; // 10:00pm
 
   let mealType: "LUNCH" | "DINNER" | null = null;
-
   if (mins >= LUNCH_SERVICE_START && mins < LUNCH_SERVICE_END) mealType = "LUNCH";
   else if (mins >= DINNER_SERVICE_START && mins < DINNER_SERVICE_END) mealType = "DINNER";
 
-  const count = mealType
-    ? await Attendance.countDocuments({ dateKey, mealType })
-    : 0;
-
+  const count = mealType ? await Attendance.countDocuments({ dateKey, mealType }) : 0;
   res.json({ dateKey, presentCount: count, mealType });
 });
 
-// POST /api/attendance/mark
-// body: { rollNo: "RADHE001" }
-router.post("/mark", async (req: Request, res: Response) => {
+// POST /api/attendance/mark  ✅ STUDENT ONLY
+router.post("/mark", requireStudent, async (req: Request, res: Response) => {
   const rollNo = String(req.body?.rollNo || "").trim();
   if (!rollNo) return res.status(400).json({ message: "rollNo is required" });
 
   const allowed = getAllowedMealToMark();
-  if (!allowed.allowed) {
-    return res.status(403).json({ message: allowed.message });
-  }
+  if (!allowed.allowed) return res.status(403).json({ message: allowed.message });
 
   const dateKey = getISTDateKey();
 
@@ -176,4 +175,78 @@ router.post("/mark", async (req: Request, res: Response) => {
   }
 });
 
+// ✅ ADMIN: GET /api/attendance/analytics/daily
+router.get("/analytics/daily", requireAdmin, async (req: Request, res: Response) => {
+  const from = String(req.query?.from || "").trim();
+  const to = String(req.query?.to || "").trim();
+
+  const today = getISTDateKey(new Date());
+  const defaultTo = today;
+
+  const defaultFrom = (() => {
+    const d = new Date(`${today}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - 13);
+    return d.toISOString().slice(0, 10);
+  })();
+
+  const fromKey = from || defaultFrom;
+  const toKey = to || defaultTo;
+
+  const days: string[] = [];
+  {
+    const start = new Date(`${fromKey}T00:00:00Z`);
+    const end = new Date(`${toKey}T00:00:00Z`);
+
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      return res.status(400).json({ message: "Invalid from/to date format. Use YYYY-MM-DD" });
+    }
+    if (start > end) {
+      return res.status(400).json({ message: "`from` must be <= `to`" });
+    }
+
+    const cur = new Date(start);
+    while (cur <= end) {
+      days.push(cur.toISOString().slice(0, 10));
+      cur.setUTCDate(cur.getUTCDate() + 1);
+    }
+  }
+
+  const agg = await Attendance.aggregate([
+    { $match: { dateKey: { $gte: fromKey, $lte: toKey } } },
+    {
+      $group: {
+        _id: { dateKey: "$dateKey", mealType: "$mealType" },
+        count: { $sum: 1 },
+      },
+    },
+  ]);
+
+  const map = new Map<string, { lunch: number; dinner: number }>();
+  for (const row of agg) {
+    const dateKey = row?._id?.dateKey as string;
+    const mealType = row?._id?.mealType as "LUNCH" | "DINNER";
+    const count = row?.count as number;
+
+    const cur = map.get(dateKey) || { lunch: 0, dinner: 0 };
+    if (mealType === "LUNCH") cur.lunch = count;
+    if (mealType === "DINNER") cur.dinner = count;
+    map.set(dateKey, cur);
+  }
+
+  const resultDays = days.map((d) => {
+    const v = map.get(d) || { lunch: 0, dinner: 0 };
+    return {
+      dateKey: d,
+      lunchCount: v.lunch,
+      dinnerCount: v.dinner,
+      total: v.lunch + v.dinner,
+    };
+  });
+
+  return res.json({ from: fromKey, to: toKey, days: resultDays });
+});
+
 export default router;
+
+
+
