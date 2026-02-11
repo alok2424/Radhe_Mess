@@ -8,6 +8,9 @@ import { signStudentToken } from "./middlewares/studentAuth";
 import attendanceRoutes from "./routes/attendance.routes";
 import foodRoutes from "./routes/food.routes";
 
+import Student from "./models/Student";
+import studentRoutes from "./routes/student.routes";
+
 const PORT = process.env.PORT ? Number(process.env.PORT) : 7000;
 
 async function start() {
@@ -31,50 +34,62 @@ async function start() {
     })
   );
 
-  //admin login
-app.post("/api/admin/login", (req: Request, res: Response) => {
-  const email = String(req.body?.email || "").trim().toLowerCase();
-  const password = String(req.body?.password || "").trim();
+  // Admin login
+  app.post("/api/admin/login", (req: Request, res: Response) => {
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    const password = String(req.body?.password || "").trim();
 
-  if (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD || !process.env.ADMIN_JWT_SECRET) {
-    return res.status(500).json({ message: "Admin auth env not configured" });
-  }
+    if (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD || !process.env.ADMIN_JWT_SECRET) {
+      return res.status(500).json({ message: "Admin auth env not configured" });
+    }
 
-  if (
-    email !== process.env.ADMIN_EMAIL.toLowerCase() ||
-    password !== process.env.ADMIN_PASSWORD
-  ) {
-    return res.status(401).json({ message: "Invalid admin credentials" });
-  }
+    if (email !== process.env.ADMIN_EMAIL.toLowerCase() || password !== process.env.ADMIN_PASSWORD) {
+      return res.status(401).json({ message: "Invalid admin credentials" });
+    }
 
-  const exp = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60; // 7 days
-  const token = signAdminToken({ role: "admin", email, exp }, process.env.ADMIN_JWT_SECRET);
+    const exp = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60; // 7 days
+    const token = signAdminToken({ role: "admin", email, exp }, process.env.ADMIN_JWT_SECRET);
 
-  return res.json({ token });
-});
+    return res.json({ token });
+  });
 
+  // ✅ Student login (UPSERT student + include rollNo in token)
+  app.post("/api/student/login", async (req: Request, res: Response) => {
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    const password = String(req.body?.password || "").trim();
 
-//Student login
-app.post("/api/student/login", (req: Request, res: Response) => {
-  const email = String(req.body?.email || "").trim().toLowerCase();
-  const password = String(req.body?.password || "").trim();
+    if (!process.env.STUDENT_EMAIL || !process.env.STUDENT_PASSWORD || !process.env.STUDENT_JWT_SECRET) {
+      return res.status(500).json({ message: "Student auth env not configured" });
+    }
 
-  if (!process.env.STUDENT_EMAIL || !process.env.STUDENT_PASSWORD || !process.env.STUDENT_JWT_SECRET) {
-    return res.status(500).json({ message: "Student auth env not configured" });
-  }
+    if (email !== process.env.STUDENT_EMAIL.toLowerCase() || password !== process.env.STUDENT_PASSWORD) {
+      return res.status(401).json({ message: "Invalid student credentials" });
+    }
 
-  if (
-    email !== process.env.STUDENT_EMAIL.toLowerCase() ||
-    password !== process.env.STUDENT_PASSWORD
-  ) {
-    return res.status(401).json({ message: "Invalid student credentials" });
-  }
+    // ✅ ensure student exists in DB (first time -> 60 tokens)
+    const name = String(process.env.STUDENT_NAME || "Student").trim();
+    const rollNo = String(process.env.STUDENT_ROLLNO || "RADHE001").trim();
+    const photoUrl = String(process.env.STUDENT_PHOTO_URL || "").trim();
 
-  const exp = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60; // 7 days
-  const token = signStudentToken({ role: "student", email, exp }, process.env.STUDENT_JWT_SECRET);
+    await Student.findOneAndUpdate(
+      { email },
+      {
+        $setOnInsert: {
+          email,
+          name,
+          rollNo,
+          photoUrl,
+          foodTokens: 60,
+        },
+      },
+      { upsert: true, new: true }
+    );
 
-  return res.json({ token });
-});
+    const exp = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60; // 7 days
+    const token = signStudentToken({ role: "student", email, rollNo, exp }, process.env.STUDENT_JWT_SECRET);
+
+    return res.json({ token });
+  });
 
   // health check
   app.get("/test", async (_req: Request, res: Response) => {
@@ -84,6 +99,7 @@ app.post("/api/student/login", (req: Request, res: Response) => {
   // api routes
   app.use("/api/attendance", attendanceRoutes);
   app.use("/api/food", foodRoutes);
+  app.use("/api/student", studentRoutes);
 
   // 404
   app.use((_req, res) => {

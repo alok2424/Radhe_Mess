@@ -6,6 +6,8 @@ import Attendance from "@/pages/Attendance";
 // Student auth
 import StudentLogin from "@/pages/login/StudentLogin";
 import StudentOnly from "@/auth/StudentOnly";
+import StudentProfile from "@/pages/StudentProfile";
+
 
 // Admin pages
 import AdminLogin from "@/pages/admin/AdminLogin";
@@ -45,7 +47,17 @@ const AppRoutes = () => {
           </Layout>
         }
       />
-
+       
+       <Route
+  path="/student/profile"
+  element={
+    <StudentOnly>
+      <Layout>
+        <StudentProfile />
+      </Layout>
+    </StudentOnly>
+  }
+/>
       {/* ✅ Attendance (student protected) */}
       <Route
         path="/attendance"

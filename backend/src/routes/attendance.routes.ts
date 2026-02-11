@@ -55,6 +55,7 @@
 //import { Router, type Request, type Response } from "express";
 import { Router, type Request, type Response } from "express";
 import Attendance from "../models/Attendance";
+import Student from "../models/Student";
 import { requireAdmin } from "../middlewares/adminAuth";
 import { requireStudent } from "../middlewares/studentAuth";
 
@@ -139,19 +140,35 @@ router.get("/today-count", async (_req: Request, res: Response) => {
   res.json({ dateKey, presentCount: count, mealType });
 });
 
-// POST /api/attendance/mark  ✅ STUDENT ONLY
+// ✅ POST /api/attendance/mark (STUDENT ONLY + token reduce)
 router.post("/mark", requireStudent, async (req: Request, res: Response) => {
-  const rollNo = String(req.body?.rollNo || "").trim();
-  if (!rollNo) return res.status(400).json({ message: "rollNo is required" });
+  const studentEmail = String((req as any).student?.email || "").toLowerCase();
+  const tokenRollNo = String((req as any).student?.rollNo || "").trim();
+
+  if (!studentEmail || !tokenRollNo) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
 
   const allowed = getAllowedMealToMark();
   if (!allowed.allowed) return res.status(403).json({ message: allowed.message });
 
   const dateKey = getISTDateKey();
 
+  // ✅ decrement only if tokens > 0
+  const student = await Student.findOneAndUpdate(
+    { email: studentEmail, foodTokens: { $gt: 0 } },
+    { $inc: { foodTokens: -1 } },
+    { new: true }
+  ).lean();
+
+  if (!student) {
+    return res.status(403).json({ message: "No tokens left. Please contact admin." });
+  }
+
   try {
+    // ✅ create attendance
     const doc = await Attendance.create({
-      studentRollNo: rollNo,
+      studentRollNo: tokenRollNo, // ✅ from token
       dateKey,
       mealType: allowed.mealType,
       markedAt: new Date(),
@@ -159,6 +176,7 @@ router.post("/mark", requireStudent, async (req: Request, res: Response) => {
 
     return res.status(201).json({
       message: `${allowed.mealType} attendance marked`,
+      tokensLeft: student.foodTokens,
       attendance: {
         id: doc._id,
         rollNo: doc.studentRollNo,
@@ -168,9 +186,14 @@ router.post("/mark", requireStudent, async (req: Request, res: Response) => {
       },
     });
   } catch (err: any) {
+    // duplicate => revert token
     if (err?.code === 11000) {
+      await Student.updateOne({ email: studentEmail }, { $inc: { foodTokens: +1 } });
       return res.status(409).json({ message: `${allowed.mealType} attendance already marked today` });
     }
+
+    // any error => revert token
+    await Student.updateOne({ email: studentEmail }, { $inc: { foodTokens: +1 } });
     return res.status(500).json({ message: "Failed to mark attendance" });
   }
 });
