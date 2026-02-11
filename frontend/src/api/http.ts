@@ -54,3 +54,24 @@ export async function apiPost<T>(
 
   return data as T;
 }
+export async function apiPut<T>(
+  path: string,
+  body: unknown,
+  options?: RequestOptions
+): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: "PUT",
+    headers: mergeHeaders(options?.headers),
+    body: JSON.stringify(body),
+  });
+
+  const data = await res.json().catch(() => null);
+
+  if (!res.ok) {
+    const message =
+      (data && (data.message as string)) || `PUT ${path} failed: ${res.status}`;
+    throw new Error(message);
+  }
+
+  return data as T;
+}
