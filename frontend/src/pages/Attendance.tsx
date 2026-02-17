@@ -25,7 +25,12 @@ export default function Attendance() {
   const navigate = useNavigate();
 
   const token = getStudentToken();
-  const authHeaders = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
+
+  // ✅ FIX: return undefined instead of {}
+  const authHeaders = useMemo(
+    () => (token ? { Authorization: `Bearer ${token}` } : undefined),
+    [token]
+  );
 
   const [menu, setMenu] = useState<string[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
@@ -43,7 +48,9 @@ export default function Attendance() {
     (async () => {
       try {
         const data = await apiGet<TodayFoodResponse>("/api/food/today");
-        const names = (data.items || []).map((x) => String(x?.name || "").trim()).filter(Boolean);
+        const names = (data.items || [])
+          .map((x) => String(x?.name || "").trim())
+          .filter(Boolean);
         setMenu(names);
       } catch (e: any) {
         setMenu([]);
@@ -125,12 +132,12 @@ export default function Attendance() {
           {open && (
             <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg">
               {menu.length === 0 ? (
-                <div className="px-4 py-3 text-sm text-slate-600">
-                  Menu not available
-                </div>
+                <div className="px-4 py-3 text-sm text-slate-600">Menu not available</div>
               ) : (
                 menu.map((name) => {
-                  const checked = selected.some((x) => x.toLowerCase() === name.toLowerCase());
+                  const checked = selected.some(
+                    (x) => x.toLowerCase() === name.toLowerCase()
+                  );
                   return (
                     <button
                       key={name}
@@ -148,7 +155,8 @@ export default function Attendance() {
           )}
 
           <div className="mt-2 text-xs text-slate-500">
-            Selected: <span className="font-semibold text-slate-900">{selected.length}</span>/3
+            Selected:{" "}
+            <span className="font-semibold text-slate-900">{selected.length}</span>/3
           </div>
         </div>
 

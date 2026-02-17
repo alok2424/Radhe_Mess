@@ -29,9 +29,11 @@ export default function StudentList() {
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [resettingId, setResettingId] = useState<string | null>(null);
 
-  const authHeaders = useMemo(() => {
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  }, [token]);
+  // ✅ FIX: return undefined instead of {}
+  const authHeaders = useMemo(
+    () => (token ? { Authorization: `Bearer ${token}` } : undefined),
+    [token]
+  );
 
   const load = async (roll?: string) => {
     if (!token) {
@@ -79,7 +81,6 @@ export default function StudentList() {
 
       showToast("Tokens reset to 60 ✅", "success");
 
-      // update UI
       setStudents((prev) =>
         prev.map((s) => (s.id === studentId ? { ...s, foodTokens: 60 } : s))
       );
