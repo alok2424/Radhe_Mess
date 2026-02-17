@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ChevronDown } from "lucide-react";
 
-export default function HeaderBar() {
+export default function Header() {
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
@@ -38,7 +38,6 @@ export default function HeaderBar() {
         </Link>
 
         <nav className="flex items-center gap-2">
-          {/* LOGIN dropdown */}
           <div className="relative" ref={dropdownRef}>
             <button
               type="button"
@@ -79,7 +78,6 @@ export default function HeaderBar() {
             )}
           </div>
 
-          {/* Today's Food */}
           <Link
             to="/today-food"
             className={`${navBtnBase} ${isActive("/today-food") ? active : idle}`}
@@ -87,7 +85,6 @@ export default function HeaderBar() {
             Today&apos;s Food
           </Link>
 
-          {/* Mark Attendance */}
           <Link
             to="/attendance"
             className={`${navBtnBase} ${isActive("/attendance") ? active : idle}`}
