@@ -33,8 +33,10 @@ function formatTimeLabel(h: number, m: number) {
 
 // Attendance marking windows (IST)
 const LUNCH_MARK_START = 11 * 60; // 11:00
-const LUNCH_MARK_END = 11 * 60 + 30; // 11:30
-const DINNER_MARK_START = 17 * 60 + 30; // 5:30pm
+// const LUNCH_MARK_END = 11 * 60 + 30; // 11:30
+ const LUNCH_MARK_END = 11 * 60 + 60;//11:00am
+// const DINNER_MARK_START = 17 * 60 + 30; // 5:30pm
+const DINNER_MARK_START = 17 * 60 ; // 5:00pm
 const DINNER_MARK_END = 18 * 60; // 6:00pm
 
 function getAllowedMealToMark():
@@ -48,14 +50,14 @@ function getAllowedMealToMark():
   if (mins < LUNCH_MARK_START) {
     return {
       allowed: false,
-      message: `Attendance for LUNCH can be marked between ${formatTimeLabel(11, 0)}-${formatTimeLabel(11, 30)}.`,
+      message: `Attendance for LUNCH can be marked between ${formatTimeLabel(11, 0)}-${formatTimeLabel(12,0)}.`,
     };
   }
 
   if (mins >= LUNCH_MARK_END && mins < DINNER_MARK_START) {
     return {
       allowed: false,
-      message: `Attendance for DINNER can be marked between ${formatTimeLabel(17, 30)}-${formatTimeLabel(18, 0)}.`,
+      message: `Attendance for DINNER can be marked between ${formatTimeLabel(17, 0)}-${formatTimeLabel(18, 0)}.`,
     };
   }
 
@@ -74,7 +76,8 @@ router.get("/today-count", async (_req: Request, res: Response) => {
   const dateKey = getISTDateKey();
   const mins = minutesSinceMidnightIST();
 
-  const LUNCH_SERVICE_START = 11 * 60 + 30; // 11:30
+  // const LUNCH_SERVICE_START = 11 * 60 + 30; // 11:30
+  const LUNCH_SERVICE_START = 11 * 60 ; // 11:00
   const LUNCH_SERVICE_END = 15 * 60; // 3:00pm
   const DINNER_SERVICE_START = 18 * 60; // 6:00pm
   const DINNER_SERVICE_END = 22 * 60; // 10:00pm
