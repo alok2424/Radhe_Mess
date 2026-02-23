@@ -19,6 +19,7 @@ function getAllowedOrigins() {
     .map((x) => x.trim())
     .filter(Boolean);
 
+  // ✅ keep localhost for dev fallback
   return configured.length ? configured : ["http://localhost:5173"];
 }
 
@@ -36,18 +37,29 @@ async function start() {
 
   // middlewares
   app.use(express.json());
+
+  // ✅ CORS (fixes "Access-Control-Allow-Origin Missing Header")
   const allowedOrigins = getAllowedOrigins();
+
   app.use(
     cors({
       origin(origin, callback) {
-        // Allow non-browser clients and same-origin requests with no Origin header.
+        // Allow non-browser clients (curl/postman) and same-origin requests with no Origin header.
         if (!origin) return callback(null, true);
+
+        // ✅ allow exact matches
         if (allowedOrigins.includes(origin)) return callback(null, true);
+
         return callback(new Error(`CORS blocked for origin: ${origin}`));
       },
       credentials: true,
+      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+      allowedHeaders: ["Content-Type", "Authorization"],
     })
   );
+
+  // ✅ Handle preflight explicitly (helps some hosting/proxy setups)
+  app.options("*", cors());
 
   // Admin login
   app.post("/api/admin/login", (req: Request, res: Response) => {
@@ -68,7 +80,7 @@ async function start() {
     return res.json({ token });
   });
 
-  // ✅ Student login (UPSERT student + include rollNo in token)
+  // Student login
   app.post("/api/student/login", async (req: Request, res: Response) => {
     const email = String(req.body?.email || "").trim().toLowerCase();
     const password = String(req.body?.password || "").trim();
@@ -81,7 +93,6 @@ async function start() {
       return res.status(401).json({ message: "Invalid student credentials" });
     }
 
-    // ✅ ensure student exists in DB (first time -> 60 tokens)
     const name = String(process.env.STUDENT_NAME || "Student").trim();
     const rollNo = String(process.env.STUDENT_ROLLNO || "RADHE001").trim();
     const photoUrl = String(process.env.STUDENT_PHOTO_URL || "").trim();
@@ -106,9 +117,9 @@ async function start() {
     return res.json({ token });
   });
 
-  // health check
-  app.get("/test", async (_req: Request, res: Response) => {
-    res.json({ message: "Hello" });
+  // ✅ health check (useful for deployment)
+  app.get("/health", (_req: Request, res: Response) => {
+    res.json({ ok: true });
   });
 
   // api routes
@@ -122,7 +133,8 @@ async function start() {
   });
 
   app.listen(PORT, () => {
-    console.log(`🚀 Server started on http://localhost:${PORT}`);
+    console.log(`🚀 Server started on port ${PORT}`);
+    console.log("✅ Allowed CORS origins:", allowedOrigins);
   });
 }
 
