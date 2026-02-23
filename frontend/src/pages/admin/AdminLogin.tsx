@@ -143,7 +143,11 @@ export default function AdminLogin() {
       showToast("Admin login successful ✅", "success");
       navigate(from, { replace: true });
     } catch (err: any) {
-      showToast(err?.message || "Login failed", "error");
+      const message =
+        err?.name === "TypeError"
+          ? "Cannot reach API. Check VITE_API_BASE_URL, HTTPS, and backend CORS."
+          : err?.message || "Login failed";
+      showToast(message, "error");
     } finally {
       setLoading(false);
     }

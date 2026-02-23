@@ -13,6 +13,15 @@ import studentRoutes from "./routes/student.routes";
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 7000;
 
+function getAllowedOrigins() {
+  const configured = String(process.env.CORS_ORIGINS || "")
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
+
+  return configured.length ? configured : ["http://localhost:5173"];
+}
+
 async function start() {
   const mongo = process.env.MONGODB_CONNECTION_STRING;
   if (!mongo) {
@@ -27,9 +36,15 @@ async function start() {
 
   // middlewares
   app.use(express.json());
+  const allowedOrigins = getAllowedOrigins();
   app.use(
     cors({
-      origin: "http://localhost:5173", // allow all origins in dev; tighten in prod
+      origin(origin, callback) {
+        // Allow non-browser clients and same-origin requests with no Origin header.
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) return callback(null, true);
+        return callback(new Error(`CORS blocked for origin: ${origin}`));
+      },
       credentials: true,
     })
   );
