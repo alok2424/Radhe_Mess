@@ -32,26 +32,19 @@
     border-color: hsl(var(--border));
   }
 
-  /* ✅ Stronger orange page background (like reference image) */
   body {
     color: hsl(var(--foreground));
     background:
-      radial-gradient(85rem 48rem at 110% -10%, rgba(255, 140, 0, 0.24), transparent 60%),
-      radial-gradient(75rem 46rem at -10% -22%, rgba(255, 204, 153, 0.30), transparent 58%),
-      radial-gradient(60rem 34rem at 50% 16%, rgba(255, 255, 255, 0.55), transparent 62%),
-      radial-gradient(46rem 30rem at 82% 56%, rgba(255, 166, 77, 0.18), transparent 64%),
-      radial-gradient(46rem 32rem at 18% 72%, rgba(255, 180, 110, 0.18), transparent 64%),
-      linear-gradient(180deg, #fff1df 0%, #ffe3c2 45%, #ffd2a6 100%);
+      radial-gradient(70rem 40rem at 110% -10%, rgba(255, 153, 0, 0.18), transparent 60%),
+      radial-gradient(60rem 38rem at -10% -20%, rgba(255, 205, 128, 0.22), transparent 55%),
+      radial-gradient(55rem 30rem at 30% 15%, rgba(255, 255, 255, 0.65), transparent 55%),
+      linear-gradient(180deg, #fff7ed 0%, #fff1e6 45%, #ffe8d2 100%);
     font-family: "Sora", "Plus Jakarta Sans", "Manrope", "Segoe UI", sans-serif;
     text-rendering: optimizeLegibility;
   }
 
-  /* ✅ Extra tint so orange shows everywhere even under transparent containers */
   #root {
     min-height: 100vh;
-    background:
-      radial-gradient(58rem 36rem at 72% 28%, rgba(255, 153, 0, 0.10), transparent 62%),
-      radial-gradient(48rem 30rem at 22% 66%, rgba(255, 176, 112, 0.10), transparent 62%);
   }
 
   h1,
@@ -62,14 +55,8 @@
 }
 
 @layer components {
-  /* ✅ If any wrapper is forcing white background, remove it */
   .min-h-screen.bg-white.text-slate-900 {
     background: transparent;
-  }
-
-  /* ✅ Make main transparent so body orange is visible */
-  main {
-    background: transparent !important;
   }
 
   /* Glass utility (use in TSX via className="glass") */
@@ -174,14 +161,9 @@
     box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.12);
   }
 
-  /* ✅ Make footer default wrapper orange-tinted instead of white */
   footer.mt-10.border-t.border-slate-200.bg-white {
-    border-color: rgba(255, 214, 170, 0.8);
-    background: linear-gradient(
-      180deg,
-      rgba(255, 245, 230, 0.72),
-      rgba(255, 228, 196, 0.52)
-    );
+    border-color: rgba(255, 255, 255, 0.5);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.46));
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
   }
