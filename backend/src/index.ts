@@ -160,7 +160,7 @@ const PORT = process.env.PORT ? Number(process.env.PORT) : 7000;
 
 function getAllowedOrigins() {
   const configured = String(process.env.CORS_ORIGINS || "")
-    .split(",")
+    .split(",") 
     .map((x) => x.trim())
     .filter(Boolean);
 
@@ -170,12 +170,12 @@ function getAllowedOrigins() {
 async function start() {
   const mongo = process.env.MONGODB_CONNECTION_STRING;
   if (!mongo) {
-    console.error("❌ Missing MONGODB_CONNECTION_STRING in .env");
+    console.error(" Missing MONGODB_CONNECTION_STRING in .env");
     process.exit(1);
   }
 
   await mongoose.connect(mongo);
-  console.log("✅ Connected to DB");
+  console.log("Connected to DB");
 
   const app = express();
 
@@ -213,7 +213,7 @@ async function start() {
     return res.json({ token });
   });
 
-  // ✅ Student login (UPSERT student + include rollNo in token)
+  //  Student login (UPSERT student + include rollNo in token)
   app.post("/api/student/login", async (req: Request, res: Response) => {
     const email = String(req.body?.email || "").trim().toLowerCase();
     const password = String(req.body?.password || "").trim();
@@ -226,7 +226,7 @@ async function start() {
       return res.status(401).json({ message: "Invalid student credentials" });
     }
 
-    // ✅ ensure student exists in DB (first time -> 60 tokens)
+    //  ensure student exists in DB (first time -> 60 tokens)
     const name = String(process.env.STUDENT_NAME || "Student").trim();
     const rollNo = String(process.env.STUDENT_ROLLNO || "RADHE001").trim();
     const photoUrl = String(process.env.STUDENT_PHOTO_URL || "").trim();
