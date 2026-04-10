@@ -1,4 +1,3 @@
-
 import { Router, type Request, type Response } from "express";
 import Attendance from "../models/Attendance";
 import Student from "../models/Student";
@@ -91,7 +90,7 @@ router.get("/today-count", async (_req: Request, res: Response) => {
 });
 
 /**
- * ✅ POST /api/attendance/mark
+ * POST /api/attendance/mark
  * STUDENT ONLY + token reduce + food selection (1–3) + store in DB
  * Body: { selectedFoods: string[] }
  */
@@ -103,7 +102,7 @@ router.post("/mark", requireStudent, async (req: Request, res: Response) => {
     return res.status(401).json({ message: "Unauthorized" });
   }
 
-  // ✅ 1) Validate selectedFoods (1–3)
+  //  1) Validate selectedFoods (1–3)
   const raw = req.body?.selectedFoods;
   const picked = Array.isArray(raw)
     ? raw.map((x) => String(x || "").trim()).filter(Boolean)
@@ -128,7 +127,7 @@ router.post("/mark", requireStudent, async (req: Request, res: Response) => {
     return res.status(400).json({ message: "You can select maximum 3 food items." });
   }
 
-  // ✅ 2) Validate against today's menu
+  //2) Validate against today's menu
   const dateKey = getISTDateKey();
   const menuDoc = await Food.findOne({ dateKey }).lean();
 
@@ -148,11 +147,11 @@ router.post("/mark", requireStudent, async (req: Request, res: Response) => {
     }
   }
 
-  // ✅ existing rule: meal timing allowed
+  // existing rule: meal timing allowed
   const allowed = getAllowedMealToMark();
   if (!allowed.allowed) return res.status(403).json({ message: allowed.message });
 
-  // ✅ decrement only if tokens > 0
+  // decrement only if tokens > 0
   const student = await Student.findOneAndUpdate(
     { email: studentEmail, foodTokens: { $gt: 0 } },
     { $inc: { foodTokens: -1 } },
@@ -164,7 +163,7 @@ router.post("/mark", requireStudent, async (req: Request, res: Response) => {
   }
 
   try {
-    // ✅ create attendance with selectedFoods stored
+    // create attendance with selectedFoods stored
     const doc = await Attendance.create({
       studentRollNo: tokenRollNo, // ✅ from token
       dateKey,
@@ -198,7 +197,7 @@ router.post("/mark", requireStudent, async (req: Request, res: Response) => {
   }
 });
 
-// ✅ ADMIN: GET /api/attendance/analytics/daily
+// ADMIN: GET /api/attendance/analytics/daily
 router.get("/analytics/daily", requireAdmin, async (req: Request, res: Response) => {
   const from = String(req.query?.from || "").trim();
   const to = String(req.query?.to || "").trim();
@@ -270,7 +269,7 @@ router.get("/analytics/daily", requireAdmin, async (req: Request, res: Response)
 });
 
 /**
- * ✅ ADMIN: GET /api/attendance/analytics/top-food?month=YYYY-MM
+ * ADMIN: GET /api/attendance/analytics/top-food?month=YYYY-MM
  * Returns TOP 3 most selected food items in that month.
  */
 router.get("/analytics/top-food", requireAdmin, async (req: Request, res: Response) => {

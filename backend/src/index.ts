@@ -143,7 +143,7 @@
 //   process.exit(1);
 // });
 
-import express, { type Request, type Response } from "express";
+import express, { type NextFunction, type Request, type Response } from "express";
 import cors from "cors";
 import "dotenv/config";
 import mongoose from "mongoose";
@@ -158,13 +158,42 @@ import studentRoutes from "./routes/student.routes";
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 7000;
 
+function normalizeOrigin(origin: string) {
+  return origin.trim().replace(/\/+$/, "").toLowerCase();
+}
+
 function getAllowedOrigins() {
   const configured = String(process.env.CORS_ORIGINS || "")
-    .split(",") 
+    .split(",")
     .map((x) => x.trim())
     .filter(Boolean);
 
-  return configured.length ? configured : ["http://localhost:5173"];
+  const origins = configured.length
+    ? configured
+    : ["http://localhost:5173", "http://127.0.0.1:5173"];
+  return origins.map(normalizeOrigin);
+}
+
+function isOriginAllowed(origin: string, allowedOrigins: string[]) {
+  const normalizedOrigin = normalizeOrigin(origin);
+
+  return allowedOrigins.some((allowedOrigin) => {
+    if (allowedOrigin === normalizedOrigin) return true;
+    if (!allowedOrigin.includes("*")) return false;
+
+    try {
+      const requestUrl = new URL(normalizedOrigin);
+      const wildcardBase = new URL(allowedOrigin.replace("*.", ""));
+
+      return (
+        allowedOrigin.startsWith(`${wildcardBase.protocol}//*.`) &&
+        requestUrl.protocol === wildcardBase.protocol &&
+        requestUrl.hostname.endsWith(`.${wildcardBase.hostname}`)
+      );
+    } catch {
+      return false;
+    }
+  });
 }
 
 async function start() {
@@ -179,20 +208,23 @@ async function start() {
 
   const app = express();
 
+  const allowedOrigins = getAllowedOrigins();
+  const corsOptions: cors.CorsOptions = {
+    origin(origin, callback) {
+      // Allow non-browser clients and same-origin requests with no Origin header.
+      if (!origin) return callback(null, true);
+      if (isOriginAllowed(origin, allowedOrigins)) return callback(null, true);
+      return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  };
+
   // middlewares
   app.use(express.json());
-  const allowedOrigins = getAllowedOrigins();
-  app.use(
-    cors({
-      origin(origin, callback) {
-        // Allow non-browser clients and same-origin requests with no Origin header.
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.includes(origin)) return callback(null, true);
-        return callback(new Error(`CORS blocked for origin: ${origin}`));
-      },
-      credentials: true,
-    })
-  );
+  app.use(cors(corsOptions));
+  app.options("*", cors(corsOptions));
 
   // Admin login
   app.post("/api/admin/login", (req: Request, res: Response) => {
@@ -252,6 +284,10 @@ async function start() {
   });
 
   // health check
+  app.get("/health", async (_req: Request, res: Response) => {
+    res.json({ ok: true });
+  });
+
   app.get("/test", async (_req: Request, res: Response) => {
     res.json({ message: "Hello" });
   });
@@ -260,6 +296,14 @@ async function start() {
   app.use("/api/attendance", attendanceRoutes);
   app.use("/api/food", foodRoutes);
   app.use("/api/student", studentRoutes);
+
+  app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
+    if (err instanceof Error && err.message.startsWith("CORS blocked for origin:")) {
+      return res.status(403).json({ message: err.message, allowedOrigins });
+    }
+
+    return next(err);
+  });
 
   // 404
   app.use((_req, res) => {

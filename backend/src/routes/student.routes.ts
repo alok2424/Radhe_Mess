@@ -1,19 +1,16 @@
-
 import { Router, type Request, type Response } from "express";
 import Student from "../models/Student";
 import { requireStudent } from "../middlewares/studentAuth";
 import { requireAdmin } from "../middlewares/adminAuth";
 
 const router = Router();
-
-// ✅ GET /api/student/me  (Student only)
+//  GET /api/student/me  (Student only)
 router.get("/me", requireStudent, async (req: Request, res: Response) => {
   const email = String((req as any).student?.email || "").toLowerCase();
   if (!email) return res.status(401).json({ message: "Unauthorized" });
 
   const student = await Student.findOne({ email }).lean();
   if (!student) return res.status(404).json({ message: "Student not found" });
-
   return res.json({
     email: student.email,
     name: student.name,
@@ -22,8 +19,7 @@ router.get("/me", requireStudent, async (req: Request, res: Response) => {
     foodTokens: student.foodTokens ?? 0,
   });
 });
-
-// ✅ ADMIN: GET /api/student/admin/list?rollNo=RADHE001
+//  ADMIN: GET /api/student/admin/list?rollNo=RADHE001
 // Authorization: Bearer <ADMIN_TOKEN>
 router.get("/admin/list", requireAdmin, async (req: Request, res: Response) => {
   try {
@@ -51,7 +47,7 @@ router.get("/admin/list", requireAdmin, async (req: Request, res: Response) => {
   }
 });
 
-// ✅ ADMIN: POST /api/student/admin/reset-tokens
+// ADMIN: POST /api/student/admin/reset-tokens
 // Authorization: Bearer <ADMIN_TOKEN>
 // body: { studentId: "..." }
 router.post("/admin/reset-tokens", requireAdmin, async (req: Request, res: Response) => {
@@ -66,7 +62,6 @@ router.post("/admin/reset-tokens", requireAdmin, async (req: Request, res: Respo
     ).lean();
 
     if (!updated) return res.status(404).json({ message: "Student not found" });
-
     return res.json({
       message: "Tokens reset to 60",
       student: {
@@ -82,5 +77,4 @@ router.post("/admin/reset-tokens", requireAdmin, async (req: Request, res: Respo
     return res.status(500).json({ message: "Failed to reset tokens" });
   }
 });
-
 export default router;

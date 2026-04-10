@@ -64,16 +64,16 @@ function verifyAdminToken(token: string, secret: string): AdminJwtPayload | null
       .replace(/\+/g, "-")
       .replace(/\//g, "_");
 
-    // ✅ safer signature compare
+    //  safer signature compare
     if (!timingSafeEqual(expected, sig)) return null;
 
     const payloadJson = base64urlDecode(payloadPart);
     const payload = JSON.parse(payloadJson) as AdminJwtPayload;
 
-    // ✅ validate role
+    //  validate role
     if (!payload || payload.role !== "admin") return null;
 
-    // ✅ expiry check (seconds)
+    //  expiry check (seconds)
     if (payload.exp && Date.now() / 1000 > payload.exp) return null;
 
     return payload;
@@ -90,7 +90,7 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction) {
 
   const authHeader = String(req.header("authorization") || "").trim();
 
-  // ✅ handle: "Bearer    token", "bearer token"
+  //  handle: "Bearer    token", "bearer token"
   const match = authHeader.match(/^Bearer\s+(.+)$/i);
   const token = match?.[1]?.trim() || "";
 

@@ -1,8 +1,6 @@
-
 import { Router, type Request, type Response } from "express";
 import Food from "../models/Food";
 import { requireAdmin } from "../middlewares/adminAuth";
-
 const router = Router();
 
 function getISTDateKey(date = new Date()) {
@@ -44,7 +42,7 @@ router.get("/today", async (_req: Request, res: Response) => {
   return res.json({ dateKey, items: doc.items, source: "db" });
 });
 
-// ✅ PUT /api/food/today (Admin Only)
+//  PUT /api/food/today (Admin Only)
 // Authorization: Bearer <ADMIN_TOKEN>
 router.put("/today", requireAdmin, async (req: Request, res: Response) => {
   const items = req.body?.items;
